@@ -1,0 +1,20 @@
+# 构建产物
+web/dist/
+web/node_modules/
+server/sars
+server/sars-server
+
+# SQLite 数据
+*.db
+*.db-wal
+*.db-shm
+
+# 测试与覆盖率产物
+web/test-results/
+web/playwright-report/
+web/blob-report/
+coverage/
+
+# 系统与编辑器
+.DS_Store
+*.swp

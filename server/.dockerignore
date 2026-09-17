@@ -1,0 +1,5 @@
+sars
+sars-server
+*.db
+*.db-wal
+*.db-shm

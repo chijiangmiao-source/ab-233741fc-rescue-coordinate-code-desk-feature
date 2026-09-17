@@ -1,0 +1,40 @@
+# 山地搜救坐标短码：前端 + API + 一次性验收服务。
+# 宿主端口可用环境变量覆盖，例如：
+#   WEB_PORT=9000 API_PORT=9001 docker compose up -d
+services:
+  api:
+    build: ./server
+    environment:
+      DB_PATH: /data/sars.db
+      PORT: 8080
+    volumes:
+      - api-data:/data
+    ports:
+      - "${API_PORT:-8081}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  web:
+    build: ./web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # 一次性验收服务：跑完固定合法/篡改样例即退出，退出码即验收结论。
+  verify:
+    build: ./verify
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: "no"
+
+volumes:
+  api-data:
