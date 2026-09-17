@@ -22,6 +22,7 @@ docker compose up --exit-code-from verify verify   # 或 docker compose run --rm
 # 打开页面
 #   签发席  http://localhost:8080/#/issue
 #   核验席  http://localhost:8080/#/verify
+#   签发记录 http://localhost:8080/#/records
 ```
 
 ### 编码示例（与操作对照）
@@ -60,7 +61,21 @@ docker compose up --exit-code-from verify verify   # 或 docker compose run --rm
 | --- | --- | --- |
 | `GET` | `/api/health` | 健康检查 |
 | `POST` | `/api/cards` | 签发：`{"x":1234,"y":5678}` → `201 {id,x,y,code,issued_at}`，成功即落库；坐标非法 → `400` |
+| `GET` | `/api/cards` | 签发记录只读查询：按签发时间倒序键集分页，首次不带 `cursor`，之后回传上一页 `next_cursor`；`limit` 1–50（默认 20）；伪造/过期/与快照不匹配的游标 → `400` |
 | `POST` | `/api/verify` | 核验：`{"code":"152637483"}` → `200 {valid,x,y,code,issued,issued_at?}`；格式/校验失败 → `422`，不还原、不落库 |
+
+### 签发记录的快照与不透明游标
+
+交接班连续查看当班记录时，记录查询以**首批查询那一刻**为界：
+
+1. 首次请求（无游标）在一个只读事务里取最新一张卡的 `(id, issued_at)` 作为**快照边界**，再取首页；
+2. 后续每页回传上一页响应里的 `next_cursor`——这是服务端 HMAC-SHA256 签名、带过期时间（默认 2 小时，可用 `CURSOR_SECRET` 配置共享密钥）的**不透明令牌**，客户端无法伪造、改写或窥探其中内容；
+3. 每页只返回 `id <= 快照边界` 且位于上一页锚点之前的行，排序固定为 `issued_at DESC, id DESC`（同秒签发靠编号兜底，不会错行）；
+4. 浏览期间新签发的卡编号必然更大，被挡在快照外，**不会插队、不会重复、不会遗漏**；
+5. 游标要同时通过 HMAC 校验、未过期，且其快照边界与锚点仍与当前库匹配——否则一律 `400`（`code: cursor_invalid | cursor_expired | cursor_stale`），**响应不含任何记录**，不会退化成“从头查询”把新卡混进旧序列；
+6. 同一游标可任意重复请求，返回完全相同的一页，因此前端失败时就地提示、保留已加载内容，用户可重试同一页。
+
+响应字段：`{ cards: [...], has_more, next_cursor, snapshot_id }`，列表响应带 `Cache-Control: no-store`，防止浏览器把旧快照页缓存成新快照。
 
 ## 测试
 
@@ -100,7 +115,7 @@ cd web && npm install && API_PORT=8080 npm run dev
 │   └── api/                # HTTP 路由与 handler
 ├── web/                    # Vue 3 前端
 │   ├── src/shortcode.js    # 短码判据（JS 实现，与 Go 同一套）
-│   ├── src/views/          # 签发页 / 核验页
-│   └── e2e/                # Playwright（固定合法/篡改样例）
+│   ├── src/views/          # 签发页 / 核验页 / 签发记录页（快照分页、带入核验）
+│   └── e2e/                # Playwright（固定合法/篡改样例 + 记录分页快照）
 └── verify/                 # 一次性验收服务
 ```

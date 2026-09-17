@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import App from './App.vue';
 import IssueView from './views/IssueView.vue';
 import VerifyView from './views/VerifyView.vue';
+import RecordsView from './views/RecordsView.vue';
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -10,6 +11,7 @@ const router = createRouter({
     { path: '/', redirect: '/issue' },
     { path: '/issue', name: 'issue', component: IssueView },
     { path: '/verify', name: 'verify', component: VerifyView },
+    { path: '/records', name: 'records', component: RecordsView },
   ],
 });
 

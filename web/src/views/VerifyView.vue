@@ -1,8 +1,14 @@
 <script setup>
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { verifyCode } from '../api';
 
-const code = ref('');
+const route = useRoute();
+
+// 从签发记录“带入核验”的短码经路由 query 预填到输入框；只填入、不提交，
+// 是否核验完全由接任指挥员自己点击按钮触发。
+const broughtCode = typeof route.query.code === 'string' ? route.query.code.trim() : '';
+const code = ref(broughtCode);
 const result = ref(null);
 const error = ref('');
 const busy = ref(false);
@@ -10,6 +16,9 @@ const busy = ref(false);
 const issuedAtText = computed(() =>
   result.value?.issued_at ? new Date(result.value.issued_at).toLocaleString() : '',
 );
+
+// 仅当短码确实来自签发记录时提示“带入”；用户手工输入不显示该提示。
+const prefilled = computed(() => broughtCode !== '' && code.value.trim() === broughtCode);
 
 async function submit() {
   error.value = '';
@@ -44,6 +53,9 @@ async function submit() {
         autocomplete="off"
         style="text-transform: none"
       />
+      <p v-if="prefilled" class="hint" data-testid="verify-prefilled">
+        已从签发记录带入短码，请确认后再核验。
+      </p>
       <button type="submit" :disabled="busy">{{ busy ? '核验中…' : '核验' }}</button>
     </form>
 

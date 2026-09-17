@@ -5,6 +5,7 @@
       <nav>
         <RouterLink to="/issue" data-testid="nav-issue">签发席</RouterLink>
         <RouterLink to="/verify" data-testid="nav-verify">核验席</RouterLink>
+        <RouterLink to="/records" data-testid="nav-records">签发记录</RouterLink>
       </nav>
     </header>
     <main>
