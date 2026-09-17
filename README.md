@@ -21,6 +21,7 @@ docker compose up --exit-code-from verify verify   # 或 docker compose run --rm
 
 # 打开页面
 #   签发席  http://localhost:8080/#/issue
+#   记录席  http://localhost:8080/#/records
 #   核验席  http://localhost:8080/#/verify
 ```
 
@@ -61,6 +62,14 @@ docker compose up --exit-code-from verify verify   # 或 docker compose run --rm
 | `GET` | `/api/health` | 健康检查 |
 | `POST` | `/api/cards` | 签发：`{"x":1234,"y":5678}` → `201 {id,x,y,code,issued_at}`，成功即落库；坐标非法 → `400` |
 | `POST` | `/api/verify` | 核验：`{"code":"152637483"}` → `200 {valid,x,y,code,issued,issued_at?}`；格式/校验失败 → `422`，不还原、不落库 |
+| `GET` | `/api/cards` | 签发记录（只读）：`?limit=&snapshot=&cursor=` → `200 {cards,snapshot,next_cursor,has_more}`；非法/过期/不匹配游标 → `400` |
+
+### 签发记录的分页约定
+
+- 首批查询不带参数：以当时最新记录的**签发时间与编号**作为快照边界，本次浏览序列随即冻结——翻页期间新签发的卡不会插入该序列，也不会造成重复或遗漏；
+- 之后每页回传上一页响应里的 `snapshot` 与 `next_cursor`（不透明、HMAC 签名、默认 10 分钟过期，可用 `CURSOR_SECRET` / `CURSOR_TTL_SECONDS` 配置）做键集分页；
+- `limit` 缺省 20、上限 50，非法值 `400`；伪造、过期或与当前快照不匹配的游标一律 `400`，不泄露任何记录；
+- 记录页可把选中的短码带入核验页（`/#/verify?code=…`），只预填、不自动提交，核验仍走真实核验链路。
 
 ## 测试
 
@@ -83,7 +92,7 @@ docker compose up verify
 ## 本地开发
 
 ```bash
-# API（默认 :8080，可用 PORT / DB_PATH 覆盖）
+# API（默认 :8080，可用 PORT / DB_PATH / CURSOR_SECRET / CURSOR_TTL_SECONDS 覆盖）
 cd server && go run .
 
 # 前端（:5173，/api 代理到 API_PORT，默认 8081）
@@ -96,11 +105,11 @@ cd web && npm install && API_PORT=8080 npm run dev
 ├── docker-compose.yml      # web + api + verify（一次性验收）
 ├── server/                 # Gin API
 │   ├── shortcode/          # 短码判据（Go 实现 + testify）
-│   ├── store/              # SQLite 坐标卡落库
-│   └── api/                # HTTP 路由与 handler
+│   ├── store/              # SQLite 坐标卡落库与记录键集分页
+│   └── api/                # HTTP 路由与 handler（含游标签名）
 ├── web/                    # Vue 3 前端
 │   ├── src/shortcode.js    # 短码判据（JS 实现，与 Go 同一套）
-│   ├── src/views/          # 签发页 / 核验页
-│   └── e2e/                # Playwright（固定合法/篡改样例）
+│   ├── src/views/          # 签发页 / 记录页 / 核验页
+│   └── e2e/                # Playwright（固定合法/篡改样例 + 记录翻页）
 └── verify/                 # 一次性验收服务
 ```

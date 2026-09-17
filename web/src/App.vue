@@ -4,6 +4,7 @@
       <h1>山地搜救坐标短码</h1>
       <nav>
         <RouterLink to="/issue" data-testid="nav-issue">签发席</RouterLink>
+        <RouterLink to="/records" data-testid="nav-records">签发记录</RouterLink>
         <RouterLink to="/verify" data-testid="nav-verify">核验席</RouterLink>
       </nav>
     </header>

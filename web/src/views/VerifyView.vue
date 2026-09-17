@@ -1,11 +1,27 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { verifyCode } from '../api';
 
+const route = useRoute();
 const code = ref('');
 const result = ref(null);
 const error = ref('');
 const busy = ref(false);
+
+// 从签发记录带入短码：只预填输入框并清掉旧结果，不自动提交，
+// 核验仍需手动发起，结论完全来自服务端真实判据。
+watch(
+  () => route.query.code,
+  (carried) => {
+    if (typeof carried === 'string' && carried !== '') {
+      code.value = carried;
+      result.value = null;
+      error.value = '';
+    }
+  },
+  { immediate: true },
+);
 
 const issuedAtText = computed(() =>
   result.value?.issued_at ? new Date(result.value.issued_at).toLocaleString() : '',
